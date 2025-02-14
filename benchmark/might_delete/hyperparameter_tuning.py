@@ -41,11 +41,11 @@ def init_optimizer(parameters, lr, weight_decay):
 
 
 def generate_hyperparameter_pool(input_dim, output_dim, hyperparameter_comb, lr, device, weight_decay, tie_threshold,
-                                 ensemble_seeds):
+                                 ensemble_seeds, trees_num):
     pool = []
     for comb in hyperparameter_comb:
         max_depth, ssp, alpha = comb
-        sohotel = SoftHoeffdingTreeLayer(input_dim, output_dim, ssp=ssp, max_depth=max_depth, trees_num=1,
+        sohotel = SoftHoeffdingTreeLayer(input_dim, output_dim, ssp=ssp, max_depth=max_depth, trees_num=trees_num,
                                          tie_threshold=tie_threshold, seeds=ensemble_seeds, alpha=alpha)
         sohotel = sohotel.to(device)
         optim = init_optimizer(sohotel.parameters(), lr, weight_decay)
@@ -77,11 +77,11 @@ def train_model_pool(trainable_pool, criterion, criterion_return, output, y, lr,
 
 
 def evaluate_pool(data, input_dim, output_dim, hyperparameter_comb, lr, device, weight_decay, tie_threshold,
-                  ensemble_seeds):
+                  ensemble_seeds, trees_num=1):
     softmax = torch.nn.Softmax(dim=-1)
     # Pools consists of: (SoHoT, Optimizer, num_parameter, ADWIN), ADWIN is to estimate loss
     pool = generate_hyperparameter_pool(input_dim, output_dim, hyperparameter_comb, lr, device, weight_decay,
-                                        tie_threshold, ensemble_seeds)
+                                        tie_threshold, ensemble_seeds, trees_num=trees_num)
 
     criterion = torch.nn.CrossEntropyLoss()
     criterion_return = torch.nn.CrossEntropyLoss(reduction='none')
@@ -146,13 +146,14 @@ def hyperparameter_tuning_pool(data_stream, config, nrows=None, oversample_rate=
     weight_decay = config['weight_decay']
     tie_threshold = config['tie_threshold']
     ensemble_seeds = config['ensemble_seeds']
+    trees_num = config['trees_num']
     # --------------------- Reset the data loader and set a new seed --------------------------------------------
     data, input_dim, output_dim = get_data_loader(data_stream, batch_size=config['batch_size'], nrows=nrows,
                                                   oversample_rate=oversample_rate, seed=seed)
     # --------------------- Soft Hoeffding Tree Pool -------------------------------------------------------------
     evaluation_metrics, losses, extension_at_batch = evaluate_pool(data, input_dim, output_dim, hyperparameter_comb,
                                                                    lr, device, weight_decay, tie_threshold,
-                                                                   ensemble_seeds)
+                                                                   ensemble_seeds, trees_num=trees_num)
 
     # --------------------- Evaluate Results -------------------------------------------------------------
     print("SoHoT with seed {} on data stream {} "

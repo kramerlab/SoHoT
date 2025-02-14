@@ -12,12 +12,29 @@ Note: Edge probabilities are visualized with 3 decimals, therefore probability 1
 '''
 
 
+def get_fi_impact(sohot, node, x, attribute_list):
+    if x is None:
+        return ""
+    w_i = sohot.weights.get(node.orientation_sequence)
+    x_dot_w_outer = [abs(valu) for valu in (w_i * x)]
+    x_dot_w_inner = abs(sum(x_dot_w_outer))
+    percentage_feature_impact = [sohot.alpha * (x_dot_w_outer[j] / x_dot_w_inner) for j in
+                                 range(len(x_dot_w_outer))]
+    num_features = len(w_i)
+    average_percentage = 1 / num_features
+    impact_str = ""
+    for i, attribute in enumerate(attribute_list):
+        if (impact := percentage_feature_impact[i]) >= average_percentage:
+            impact_str += f"{attribute}:{impact:.3f}\n"
+    return impact_str
+
+
 def visualize_soft_hoeffding_tree(sohot, X=None, print_idx=0, save_img=False, attribute_list={}):
     G = nx.Graph()
     node_label = {}
     edge_label = {}
     G.add_node(sohot.root)
-    no_edge_labels = False
+    no_edge_labels = True       # no edge labels
     if X is None:
         # do not print edge labels
         no_edge_labels = True
@@ -34,8 +51,8 @@ def visualize_soft_hoeffding_tree(sohot, X=None, print_idx=0, save_img=False, at
         node_label[sohot.root] = "Split Attr: {}, \nValue:{:.3f}".format(sohot.root.split_test.feature,
                                                                          sohot.root.split_test.split_at)
     else:
-        node_label[sohot.root] = "If {} > {:.3f}".format(attribute_list[sohot.root.split_test.feature],
-                                                         sohot.root.split_test.split_at)
+        impact = get_fi_impact(sohot, sohot.root, X, attribute_list=attribute_list)
+        node_label[sohot.root] = f"{attribute_list[sohot.root.split_test.feature]} > {sohot.root.split_test.split_at:.3f}\n{impact}"
     if sohot.root.right_leaf is None:
         to_traverse = [sohot.root.right]
     else:
@@ -55,10 +72,12 @@ def visualize_soft_hoeffding_tree(sohot, X=None, print_idx=0, save_img=False, at
         weight_vec = sohot.weights[orientation_seq]
 
         if isinstance(i, Node):
+            impact = get_fi_impact(sohot, i, X, attribute_list=attribute_list)
+
             if len(attribute_list) == 0:
                 node_label[i] = "Split Attr: {}, \nValue:{:.3f}".format(i.split_test.feature, i.split_test.split_at)
             else:
-                node_label[i] = "If {} > {:.3f}".format(attribute_list[i.split_test.feature], i.split_test.split_at)
+                node_label[i] = f"{attribute_list[i.split_test.feature]} > {i.split_test.split_at:.3f}\n{impact}"
             if not no_edge_labels:
                 if prev.left is i:
                     edge_label[(prev, i)] = "{:.6f}".format(prev.forward(X, weight_vec))
@@ -76,11 +95,11 @@ def visualize_soft_hoeffding_tree(sohot, X=None, print_idx=0, save_img=False, at
             previous.append(i)
         else:
             node_label[i] = "Pr: {:.2f}".format(i.sample_to_node_prob)
-            if not no_edge_labels:
-                if prev.left_leaf is i:
-                    edge_label[(prev, i)] = "{:.6f}".format(prev.forward(X, weight_vec))
-                else:
-                    edge_label[(prev, i)] = "{:.6f}".format(1. - prev.forward(X, weight_vec))
+            # if not no_edge_labels:
+            #     if prev.left_leaf is i:
+            #         edge_label[(prev, i)] = "{:.6f}".format(prev.forward(X, weight_vec))
+            #     else:
+            #         edge_label[(prev, i)] = "{:.6f}".format(1. - prev.forward(X, weight_vec))
 
     pos = hierarchy_pos(G, sohot.root)
     ax = plt.gca()

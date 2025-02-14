@@ -1,12 +1,12 @@
 # Return default hyperparameter
 
 
-def get_parameter_sohot(dataset_name):
+def get_parameter_sohot(dataset_name, trees_num=10):
     max_depth = 7
     ssp = 1.0
     lr = 1e-3
     batch_size = 32
-    trees_num = 10
+    trees_num = trees_num
     grace_period = 600
     split_confidence = 1e-6
     weight_decay = 0

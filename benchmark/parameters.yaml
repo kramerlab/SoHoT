@@ -1,0 +1,28 @@
+sohot_options: {
+  max_depth: [5, 6, 7],
+  smooth_step_param: [1, 10],
+  alpha: [0.3, 0.4]}
+hoeffding_tree_options: {
+  grace_period: [200, 400, 600],
+  confidence: [1e-3, 1e-4],
+  leaf_prediction: ['MajorityClass', 'NaiveBayesAdaptive']
+}
+EFDT_options: {
+  grace_period: [200, 400, 600],
+  min_samples_reevaluate: [200, 600],
+  leaf_prediction: ['NaiveBayesAdaptive', 'MajorityClass']
+}
+hat_options: {
+  grace_period: [200, 400, 600],
+  confidence: [1e-3, 1e-4],
+  leaf_prediction: ['MajorityClass', 'NaiveBayesAdaptive']
+}
+sgd_clf_options: {
+  loss: ['log_loss', 'modified_huber'],
+  penalty: ['l2', 'l1'],
+  learning_rate: [
+    {lr: 'optimal', eta0: 0.0},
+    {lr: 'constant', eta0: 0.01},
+    {lr: 'constant', eta0: 0.001}
+    ]
+}

@@ -53,7 +53,8 @@ class SoftHoeffdingTree(nn.Module):
         :param seed: Random seed
         :type seed: int
         """
-        super(SoftHoeffdingTree, self).__init__()
+        # super(SoftHoeffdingTree, self).__init__()
+        super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.max_depth = max_depth
@@ -68,7 +69,7 @@ class SoftHoeffdingTree(nn.Module):
 
         if seed is not None: torch.manual_seed(seed)
         # Add 't' (=top) weight in ordered torch dictionary
-        self.weights = torch.nn.ParameterDict({'t': nn.Parameter(torch.FloatTensor(output_dim).uniform_(-0.01, 0.01),
+        self.weights = torch.nn.ParameterDict({'t': nn.Parameter(torch.FloatTensor(self.output_dim).uniform_(-0.01, 0.01),
                                                                  requires_grad=True)})
         self.root = LeafNode()
         self.root.sample_to_node_prob = 1.
