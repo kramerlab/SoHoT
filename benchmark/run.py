@@ -3,7 +3,7 @@ from benchmark.load_data import load_data_stream
 from benchmark.hyperparameter_tuning_pool import ModelPool
 from sohot.tree_visualization import visualize_soft_hoeffding_tree
 from sohot.sohot_ensemble_layer import SoftHoeffdingTreeLayer
-from capymoa.classifier import HoeffdingTree, EFDT, HoeffdingAdaptiveTree, SGDClassifier
+from capymoa.classifier import HoeffdingTree, EFDT, HoeffdingAdaptiveTree, SGDClassifier, AdaptiveRandomForestClassifier, StreamingRandomPatches
 from pathlib import Path
 import pandas as pd
 from capymoa.instance import Instance
@@ -20,9 +20,12 @@ class SGDClassifierMod(SGDClassifier):
         if not self._trained_at_least_once: return None
         return self.sklearner.predict_proba([instance.x])[0]
 
-# class HoeffdingTreeMod(HoeffdingTree):
-#     def c_complexity(self):
-#         return SizeOf.sizeOf(self.moa_learner)
+
+class HoeffdingTreeLimit(HoeffdingTree):
+    def train(self, instance):
+        # todo Count number of nodes
+        # set growthAllowed to False
+        super.train(instance)
 
 
 def set_experiments(data_name, seed=1, data_dir=".", output_path="./benchmark/data"):
@@ -85,6 +88,22 @@ def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="
         model = ModelPool(models=pool_models, k=k)
         run_experiments(data_stream=data_stream, data_name=data_name, model=model, n_instance_limit=n_instance_limit,
                         seed=seed, output_path=output_path_c)
+
+
+def set_ensemble(data_name, ensemble_size=10, seed=1, data_dir=".", output_path="./benchmark/data"):
+    Path(f"{output_path}/ensemble_results").mkdir(parents=True, exist_ok=True)
+    data_stream, n_instance_limit = load_data_stream(data_name, seed=seed, data_dir=data_dir)
+    schema = data_stream.get_schema()
+    output_path += "/ensemble_results"
+    models = [
+        (SoftHoeffdingTreeLayer(schema=schema, trees_num=ensemble_size, seed=seed), f"{output_path}/SoHoT"),
+        (AdaptiveRandomForestClassifier(schema=schema, ensemble_size=ensemble_size, random_seed=seed), f"{output_path}/ARF"),
+        (StreamingRandomPatches(schema=schema, ensemble_size=ensemble_size, random_seed=seed), f"{output_path}/SRP"),
+    ]
+    for model, output_path in models:
+        compute_complexity = output_path.endswith('SoHoT')
+        run_experiments(data_stream=data_stream, data_name=data_name, model=model, n_instance_limit=n_instance_limit,
+                        seed=seed, output_path=output_path, compute_complexity=compute_complexity)
 
 
 def run_experiments(data_stream, data_name, model, n_instance_limit, seed, output_path, compute_complexity=False):
