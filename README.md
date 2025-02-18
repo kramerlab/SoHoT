@@ -14,3 +14,6 @@ SoHoT can be used in a neural network due to its differentiability.
 # Visualize the first tree in the ensemble
 # visualize_soft_hoeffding_tree(sohotel.sohots[0])
 ```
+
+## Transparency
+![til](./SoHoT_over_time.gif)

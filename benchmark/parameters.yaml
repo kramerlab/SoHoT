@@ -7,6 +7,12 @@ hoeffding_tree_options: {
   confidence: [1e-3, 1e-4],
   leaf_prediction: ['MajorityClass', 'NaiveBayesAdaptive']
 }
+hoeffding_tree_limit_options: {
+  grace_period: [200, 400, 600],
+  confidence: [1e-3, 1e-4],
+  leaf_prediction: ['MajorityClass', 'NaiveBayesAdaptive'],
+  node_limit: [255]
+}
 EFDT_options: {
   grace_period: [200, 400, 600],
   min_samples_reevaluate: [200, 600],

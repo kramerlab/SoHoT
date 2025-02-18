@@ -1,6 +1,6 @@
 import os
 import argparse
-from benchmark.run import set_experiments, set_hyperparameter_model_pool, set_ensemble, plot_transparency
+from benchmark.run import set_experiments, set_hyperparameter_model_pool, set_ensemble
 
 
 DATA_DIR = os.getenv('DATA_DIR', './benchmark/data')
@@ -19,6 +19,7 @@ if __name__ == '__main__':
         data_name = args.dataset
     if args.ensemble is not None:
         ensemble_testing = args.ensemble
+        ensemble_size = 10 if ensemble_testing == 1 else 30
     if args.seed is not None:
         seed = args.seed
 
@@ -27,6 +28,4 @@ if __name__ == '__main__':
     if not ensemble_testing:
         set_hyperparameter_model_pool(data_name, seed=seed, data_dir=DATA_DIR, output_path=OUTPUT_DIR)
     else:
-        set_ensemble(data_name, ensemble_size=10, seed=seed, data_dir=DATA_DIR, output_path=OUTPUT_DIR)
-
-    # plot_transparency(data_name='AGR_a', seed=seed, data_dir=DATA_DIR, n_instance_limit=10000)
+        set_ensemble(data_name, ensemble_size=ensemble_size, seed=seed, data_dir=DATA_DIR, output_path=OUTPUT_DIR)

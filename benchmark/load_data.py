@@ -245,6 +245,16 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
                                           GradualDrift(position=750000, width=50000),
                                           AgrawalGenerator(classification_function=8, instance_random_seed=seed),
                                           ])
+    elif dataset_name.__eq__('AGR_small'):
+        n_instance_limit = 10000
+        data_stream = DriftStream(stream=[AgrawalGenerator(classification_function=3, instance_random_seed=seed),
+                                          AbruptDrift(position=2500),
+                                          AgrawalGenerator(classification_function=4, instance_random_seed=seed),
+                                          AbruptDrift(position=5000),
+                                          AgrawalGenerator(classification_function=6, instance_random_seed=seed),
+                                          AbruptDrift(position=7500),
+                                          AgrawalGenerator(classification_function=8, instance_random_seed=seed),
+                                          ])
     elif dataset_name.__eq__('RBF_f'):
         data_stream = RandomRBFGeneratorDrift(number_of_classes=5, number_of_attributes=10,
                                               number_of_centroids=50, number_of_drifting_centroids=50,
