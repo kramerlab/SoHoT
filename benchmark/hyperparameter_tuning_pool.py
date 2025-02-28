@@ -8,6 +8,8 @@ class ModelPool:
         self.pool = [(model, ADWIN(delta=1e-5)) for model in models]
         self.pool_size = len(models)
         self.k = k
+        self.num_instances_to_train_all = 100
+        self.num_instances_trained = 0
 
     @staticmethod
     def _get_performance(pool_entry):
@@ -31,16 +33,23 @@ class ModelPool:
     def train(self, instance):
         # Update the performance detectors
         self._update_detectors(instance)
-        # 1. Select the top models and 2. Randomly choose the remaining models to train
-        models_to_be_trained = [0] * self.pool_size
-        num_top_models_to_train = self.k // 2
-        top_models_to_train = self._get_performance_sorted_indices()[:num_top_models_to_train]
-        rand_models_to_train = np.random.choice([i for i in range(self.pool_size) if i not in top_models_to_train],
-                                                size=self.k - num_top_models_to_train, replace=False)
-        for pool_idx in range(self.pool_size):
-            if pool_idx in top_models_to_train or pool_idx in rand_models_to_train:
-                models_to_be_trained[pool_idx] = 1
+        if self.num_instances_to_train_all > self.num_instances_trained:
+            models_to_be_trained = [1] * self.pool_size
+        else:
+            # 1. Select the top models and 2. Randomly choose the remaining models to train
+            models_to_be_trained = [0] * self.pool_size
+            num_top_models_to_train = self.k // 2
+            top_models_to_train = self._get_performance_sorted_indices()[:num_top_models_to_train]
+            rand_models_to_train = np.random.choice([i for i in range(self.pool_size) if i not in top_models_to_train],
+                                                    size=self.k - num_top_models_to_train, replace=False)
+            for pool_idx in range(self.pool_size):
+                if pool_idx in top_models_to_train or pool_idx in rand_models_to_train:
+                    models_to_be_trained[pool_idx] = 1
         # Train the models
         for i, (model, _) in enumerate(self.pool):
             if models_to_be_trained[i] == 1:
                 model.train(instance)
+        self.num_instances_trained += 1
+
+    def c_complexity(self):
+        return [p[0].c_complexity() for p in self.pool]

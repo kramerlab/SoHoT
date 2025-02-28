@@ -4,6 +4,7 @@ from .sohot import SoftHoeffdingTree
 import math
 from river import stats
 import random
+from .tree_visualization import SohotVisualization
 
 
 class SoftHoeffdingTreeLayer(nn.Module):
@@ -12,6 +13,8 @@ class SoftHoeffdingTreeLayer(nn.Module):
                  seed=None, alpha=0.3, optimizer='adam', lr=0.01):
         super(SoftHoeffdingTreeLayer, self).__init__()
         self.schema = schema
+        self.trees_num = trees_num
+        self.samples_seen = 0
         # Compute one-hot-encoded input dimension using schema
         self.num_attributes = self.schema.get_num_attributes()
         self.input_dim = 0
@@ -56,6 +59,9 @@ class SoftHoeffdingTreeLayer(nn.Module):
         self.is_target_class = is_target_class
         self.average_output = average_output
 
+        # Map tree index to tree visualization object
+        self.sohot_visualization = {}
+
     def forward(self, x, y=None):
         # x = self.bn(x)
         outputs = [None]*len(self.sohots)
@@ -95,17 +101,17 @@ class SoftHoeffdingTreeLayer(nn.Module):
                 x_trans.append(self._get_normalized_value(value, i))
             else:
                 x_trans.append(value)
-        return x_trans
+        return torch.tensor([x_trans], dtype=torch.float32)
 
     def predict_proba(self, instance):
         x_trans = self.transform_input(instance)
-        return self.forward(torch.tensor([x_trans], dtype=torch.float32),
-                            torch.tensor([instance.y_index], dtype=torch.long))
+        return self.forward(x_trans, torch.tensor([instance.y_index], dtype=torch.long))
 
     def predict(self, instance):
         return torch.argmax(self.predict_proba(instance)).item()
 
     def train(self, instance):
+        self.samples_seen += 1
         # todo perform forward pass and store information - does it make sense for larger batch sizes?
         y_pred = self.predict_proba(instance)
         y_target = torch.tensor([instance.y_index], dtype=torch.long)
@@ -120,4 +126,21 @@ class SoftHoeffdingTreeLayer(nn.Module):
         self.optim.zero_grad()
 
     def c_complexity(self):
+        if self.trees_num == 1:
+            return self.sohots[0].total_node_cnt()
         return [t.total_node_cnt() for t in self.sohots]
+
+    # Revert feature transformation to visualize correct feature value in split test shown in plot_tree
+    def _revert_instance_transformation(self, x_i, i):
+        return x_i * 3 * math.sqrt(self.variances[i].get()) + self.means[i].get()
+
+    def plot_tree(self, instance, tree_idx=0, save_img=False):
+        self.sohots[tree_idx]._reset_all_node_to_leaf_prob()
+        self.predict(instance)
+        x_trans = self.transform_input(instance)[0]     # Change [0] if larger batch sizes where used
+        x_trans.requires_grad = False
+        if tree_idx not in self.sohot_visualization:
+            self.sohot_visualization[tree_idx] = SohotVisualization(sohot=self.sohots[tree_idx], schema=self.schema)
+        self.sohot_visualization[tree_idx].visualize_soft_hoeffding_tree(X=x_trans, print_idx=self.samples_seen,
+                                                                         save_img=save_img,
+                                                                         revert_transformation=self._revert_instance_transformation)

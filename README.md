@@ -10,10 +10,24 @@ SoHoT can be used in a neural network due to its differentiability.
 
 ## Example Code
 ```python
+from benchmark.load_data import load_data_stream
+from sohot.sohot_ensemble_layer import SoftHoeffdingTreeLayer
+from capymoa.evaluation import ClassificationEvaluator
 
-# Visualize the first tree in the ensemble
-# visualize_soft_hoeffding_tree(sohotel.sohots[0])
+
+data_stream, n_instances = load_data_stream('AGR_small')
+model = SoftHoeffdingTreeLayer(schema=data_stream.get_schema(), trees_num=1)
+evaluator = ClassificationEvaluator(schema=data_stream.get_schema())
+for i in range(n_instances):
+    instance = data_stream.next_instance()
+    y_pred = model.predict(instance)
+    evaluator.update(y_target_index=instance.y_index, y_pred_index=y_pred)
+    model.train(instance)
+    if i == 5000:
+        model.plot_tree(instance=instance, tree_idx=0)
+print(f"Accuracy: {evaluator.accuracy()}")
 ```
 
 ## Transparency
-![til](./SoHoT_over_time.gif)
+Soft Hoeffding tree evolving over the data stream generated with Agrawal generator containing three abrupt drifts (applying the classification functions: 2, 3, 5, 6).
+![til](./SoHoT.gif)

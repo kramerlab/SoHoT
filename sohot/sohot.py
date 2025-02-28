@@ -215,6 +215,23 @@ class SoftHoeffdingTree(nn.Module):
             postorder.append(node)
         return postorder
 
+    def _reset_all_node_to_leaf_prob(self):
+        if isinstance(self.root, LeafNode): return
+        traversal = [self.root]
+        while traversal:
+            node = traversal.pop()
+            if isinstance(node, LeafNode):
+                node.sample_to_node_prob = 0.
+            else:
+                if node.left is None:
+                    traversal.append(node.left_leaf)
+                elif node.left is not None:
+                    traversal.append(node.left)
+                if node.right is None:
+                    traversal.append(node.right_leaf)
+                elif node.right is not None:
+                    traversal.append(node.right)
+
     def __str__(self):
         output = ""
         to_traverse = [self.root]

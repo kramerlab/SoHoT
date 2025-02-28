@@ -95,6 +95,7 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
                     data_dir=data_dir, index_col=None, feature_names=feature_names, header=0)
         data_stream = ARFFStream(path=f'{data_dir}/airlines.arff')
     elif dataset_name.__eq__('electricity'):
+        n_instance_limit = None
         data_stream = Electricity(directory=data_dir)
     elif dataset_name.__eq__('WISDM'):
         data_path = f'{data_dir}/WISDM_ar_v1.1_transformed.arff'
@@ -110,14 +111,17 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
                             output_file.write(source_file.read())
         data_stream = ARFFStream(path=data_path)
     elif dataset_name.__eq__('covtype'):
+        n_instance_limit = None
         data_stream = Covtype(directory=data_dir)
     elif dataset_name.__eq__('epsilon'):
+        n_instance_limit = None
         # todo add download from https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/
         feature_names = [f'F{i}' for i in range(2000)]
         create_arff(csv_data_path=None, data_dir=data_dir, data_name='epsilon', feature_names=feature_names,
                     t_data_path=f"{data_dir}/downloaded_datasets/epsilon_normalized.t")
         data_stream = ARFFStream(path=f'{data_dir}/epsilon.arff')
     elif dataset_name.__eq__('poker'):
+        n_instance_limit = None
         # todo add download from https://archive.ics.uci.edu/ml/datasets/Poker+Hand
         # Prepare dataframe because we concatenate two
         data1 = pd.read_csv(f'{data_dir}/downloaded_datasets/poker/poker-hand-testing.data', sep=',', header=None)
@@ -127,6 +131,7 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
         create_arff(csv_data_path=None, data_dir=data_dir, data_name='poker', data_frame=data)
         data_stream = ARFFStream(path=f'{data_dir}/poker.arff')
     elif dataset_name.__eq__('kdd99'):
+        n_instance_limit = None
         feature_names = [
             "duration", "protocol_type", "service", "flag", "src_bytes", "dst_bytes", "land",
             "wrong_fragment", "urgent", "hot", "num_failed_logins", "logged_in",
@@ -247,13 +252,13 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
                                           ])
     elif dataset_name.__eq__('AGR_small'):
         n_instance_limit = 10000
-        data_stream = DriftStream(stream=[AgrawalGenerator(classification_function=3, instance_random_seed=seed),
+        data_stream = DriftStream(stream=[AgrawalGenerator(classification_function=2, instance_random_seed=seed),
                                           AbruptDrift(position=2500),
-                                          AgrawalGenerator(classification_function=4, instance_random_seed=seed),
+                                          AgrawalGenerator(classification_function=3, instance_random_seed=seed),
                                           AbruptDrift(position=5000),
-                                          AgrawalGenerator(classification_function=6, instance_random_seed=seed),
+                                          AgrawalGenerator(classification_function=5, instance_random_seed=seed),
                                           AbruptDrift(position=7500),
-                                          AgrawalGenerator(classification_function=8, instance_random_seed=seed),
+                                          AgrawalGenerator(classification_function=6, instance_random_seed=seed),
                                           ])
     elif dataset_name.__eq__('RBF_f'):
         data_stream = RandomRBFGeneratorDrift(number_of_classes=5, number_of_attributes=10,

@@ -1,7 +1,8 @@
 sohot_options: {
   max_depth: [5, 6, 7],
   smooth_step_param: [1, 10],
-  alpha: [0.3, 0.4]}
+  alpha: [0.3, 0.4]
+}
 hoeffding_tree_options: {
   grace_period: [200, 400, 600],
   confidence: [1e-3, 1e-4],
@@ -11,7 +12,8 @@ hoeffding_tree_limit_options: {
   grace_period: [200, 400, 600],
   confidence: [1e-3, 1e-4],
   leaf_prediction: ['MajorityClass', 'NaiveBayesAdaptive'],
-  node_limit: [255]
+  node_limit: [255],
+  depth_limit: [7]
 }
 EFDT_options: {
   grace_period: [200, 400, 600],
