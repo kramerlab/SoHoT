@@ -31,7 +31,7 @@ class TreeEvaluator:
             y_pred_index = torch.argmax(y_pred[0]).item()
             y_pred = y_pred[0].detach().numpy()
         else:
-            y_pred = list(y_pred)
+            y_pred = list(y_pred) if y_pred is not None else None
             # First prediction special cases: y_pred for SGD is None, for HT weird behavior happens
             if y_pred is None \
                     or len(y_pred) != len(self.label_indices) \

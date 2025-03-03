@@ -60,18 +60,18 @@ def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="
                 compute_complexity = True
             elif name.__eq__('hoeffding_tree_options'):
                 if data_name.__eq__('epsilon'):
-                    m = HoeffdingTreeRiver(schema=schema, grace_period=opt[0], confidence=opt[1],
+                    m = HoeffdingTreeRiver(schema=schema, grace_period=opt[0], confidence=float(opt[1]),
                                            leaf_prediction=opt[2], random_seed=seed)
                 else:
-                    m = HoeffdingTree(schema=schema, grace_period=opt[0], confidence=opt[1], leaf_prediction=opt[2],
+                    m = HoeffdingTree(schema=schema, grace_period=opt[0], confidence=float(opt[1]), leaf_prediction=opt[2],
                                       random_seed=seed)
                 output_path_c = f"{output_path}/HT"
             elif name.__eq__('hoeffding_tree_limit_options'):
                 if data_name.__eq__('epsilon'):
-                    m = HoeffdingTreeRiver(schema=schema, grace_period=opt[0], confidence=opt[1],
+                    m = HoeffdingTreeRiver(schema=schema, grace_period=opt[0], confidence=float(opt[1]),
                                            leaf_prediction=opt[2], random_seed=seed, limit=opt[4])
                 else:
-                    m = HoeffdingTreeLimit(schema=schema, grace_period=opt[0], confidence=opt[1],
+                    m = HoeffdingTreeLimit(schema=schema, grace_period=opt[0], confidence=float(opt[1]),
                                            leaf_prediction=opt[2], random_seed=seed, node_limit=opt[3])
                 output_path_c = f"{output_path}/HT_limit"
             elif name.__eq__('EFDT_options'):
@@ -81,10 +81,10 @@ def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="
                 output_path_c = f"{output_path}/EFDT"
             elif name.__eq__('hat_options'):
                 if data_name.__eq__('epsilon'):
-                    m = HoeffdingAdaptiveTreeRiver(schema=schema, grace_period=opt[0], confidence=opt[1],
+                    m = HoeffdingAdaptiveTreeRiver(schema=schema, grace_period=opt[0], confidence=float(opt[1]),
                                                    leaf_prediction=opt[2], random_seed=seed)
                 else:
-                    m = HoeffdingAdaptiveTreeMod(schema=schema, grace_period=opt[0], confidence=opt[1],
+                    m = HoeffdingAdaptiveTreeMod(schema=schema, grace_period=opt[0], confidence=float(opt[1]),
                                                  leaf_prediction=opt[2], random_seed=seed)
                 output_path_c = f"{output_path}/HAT"
                 compute_complexity = True

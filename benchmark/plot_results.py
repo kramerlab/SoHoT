@@ -52,7 +52,7 @@ def compare_sohot_ht(model_names, metric, evaluation_method):
     # Heatmap
     plt.figure(figsize=(8, 6))
     sns.heatmap(table, annot=True, fmt=".3f", linewidths=0.5)   #  cmap="coolwarm"
-    plt.savefig(f"data/images_sohot/paper/heatmap.pdf", format="pdf")
+    plt.savefig(f"data/images_sohot/paper/figure-heatmap.pdf", format="pdf")
     # plt.show()
 
 
@@ -62,15 +62,15 @@ if __name__ == '__main__':
 
     # 1. Evaluation: SoHoT vs. HT and HT_limit
     model_names = ['SoHoT', 'HT', 'HT_limit']
-    # compare_sohot_ht(model_names, metric, evaluation_method)
+    compare_sohot_ht(model_names, metric, evaluation_method)
 
     # 2. Evaluation: SoHoT vs. state-of-the-art-ensemble methods
     model_names = ['SoHoT', 'HT', 'HAT', 'EFDT', 'SGDClassifier']
-    # make_latex_table(model_names, metric, evaluation_method)
+    make_latex_table(model_names, metric, evaluation_method)
 
     # 3. Evaluation: SoHoT vs. Soft tree
 
     # 4. Evaluation: Transparency of SoHoTs
     visualize_tree_at = [2400, 2600, 4900, 5100, 7000, 7400, 7600]
-    visualize_tree_at = [i for i in range(1, 10000, 100)]
-    plot_transparency(data_name='AGR_small', seed=1, visualize_tree_at=visualize_tree_at, save_img=True)
+    # visualize_tree_at = [i for i in range(1, 10000, 100)]
+    # plot_transparency(data_name='AGR_small', seed=1, visualize_tree_at=visualize_tree_at, save_img=True)
