@@ -31,3 +31,19 @@ print(f"Accuracy: {evaluator.accuracy()}")
 ## Transparency
 Soft Hoeffding tree evolving over the data stream generated with Agrawal generator containing three abrupt drifts (applying the classification functions: 2, 3, 5, 6).
 ![til](./SoHoT.gif)
+
+## Cite SoHoT
+```
+@InProceedings{10.1007/978-3-031-78977-9_11,
+author="K{\"o}bschall, Kirsten
+and Hartung, Lisa
+and Kramer, Stefan",
+title="Soft Hoeffding Tree: A Transparent and Differentiable Model on Data Streams",
+booktitle="Discovery Science",
+year="2025",
+publisher="Springer Nature Switzerland",
+address="Cham",
+pages="167--182",
+isbn="978-3-031-78977-9"
+}
+```

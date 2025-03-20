@@ -1,9 +1,10 @@
-from capymoa.classifier import HoeffdingTree, SGDClassifier, HoeffdingAdaptiveTree
+from capymoa.classifier import HoeffdingTree, SGDClassifier, HoeffdingAdaptiveTree, EFDT
 from capymoa.instance import Instance
 from capymoa.splitcriteria import SplitCriterion
 from capymoa.stream import Schema
 from typing import Union
 import river
+import re
 
 
 # In CapyMOA Version 0.8 SGDClassifier does not return anything!
@@ -43,11 +44,19 @@ class HoeffdingTreeLimit(HoeffdingTree):
                          remove_poor_attrs=remove_poor_attrs, disable_prepruning=disable_prepruning)
 
     def train(self, instance):
-        tree_size = self.moa_learner.getNodeCount()
+        tree_size = abs(self.moa_learner.getNodeCount())
         if tree_size > self.node_limit:
             self.moa_learner.gracePeriodOption.setValue(10000000)
             # self.moa_learner.growth_limit = False     # protected attribute cannot be reached
         super().train(instance)
+
+    def c_complexity(self):
+        return self.moa_learner.getNodeCount()
+
+
+class HoeffdingTreeMod(HoeffdingTree):
+    def c_complexity(self):
+        return self.moa_learner.getNodeCount()
 
 
 class HoeffdingAdaptiveTreeMod(HoeffdingAdaptiveTree):
@@ -83,6 +92,9 @@ class HoeffdingTreeRiver(river.tree.HoeffdingTreeClassifier):
         x = self.river_input_format(instance.x)
         self.ht.learn_one(x=x, y=instance.y_index)
 
+    def c_complexity(self):
+        return self.ht.n_nodes
+
 
 class HoeffdingAdaptiveTreeRiver(river.tree.HoeffdingAdaptiveTreeClassifier):
     def __init__(self, schema, grace_period, confidence, leaf_prediction, random_seed):
@@ -90,7 +102,7 @@ class HoeffdingAdaptiveTreeRiver(river.tree.HoeffdingAdaptiveTreeClassifier):
         nominal_attributes = [i for i in range(self.input_dim)
                               if schema.get_moa_header().attribute(i).isNominal()]
         leaf_preds = {'MajorityClass': 'mc', 'NaiveBayes': 'nb', 'NaiveBayesAdaptive': 'nba'}
-        self.ht = river.tree.HoeffdingAdaptiveTreeClassifier(grace_period=grace_period, delta=confidence,
+        self.hat = river.tree.HoeffdingAdaptiveTreeClassifier(grace_period=grace_period, delta=confidence,
                                                              nominal_attributes=nominal_attributes,
                                                              leaf_prediction=leaf_preds[leaf_prediction],
                                                              seed=random_seed)
@@ -100,15 +112,52 @@ class HoeffdingAdaptiveTreeRiver(river.tree.HoeffdingAdaptiveTreeClassifier):
 
     def predict(self, instance: Instance):
         x = self.river_input_format(instance.x)
-        return self.ht.predict_one(x=x)
+        return self.hat.predict_one(x=x)
 
     def predict_proba(self, instance: Instance):
         x = self.river_input_format(instance.x)
-        return list(self.ht.predict_proba_one(x).values())
+        return list(self.hat.predict_proba_one(x).values())
 
     def train(self, instance: Instance):
         x = self.river_input_format(instance.x)
-        self.ht.learn_one(x=x, y=instance.y_index)
+        self.hat.learn_one(x=x, y=instance.y_index)
 
     def c_complexity(self):
-        return self.n_nodes
+        return self.hat.n_nodes
+
+
+class EFDTMod(EFDT):
+    def c_complexity(self):
+        n_nodes_str = str(self.moa_learner.getModelMeasurements()[2])
+        n_nodes = int(re.search(r"\d+", n_nodes_str).group())
+        return n_nodes
+
+
+class EFDTRiver(river.tree.ExtremelyFastDecisionTreeClassifier):
+    def __init__(self, schema, grace_period, min_samples_reevaluate, leaf_prediction, random_seed):
+        self.input_dim = int(schema.get_num_attributes())
+        nominal_attributes = [i for i in range(self.input_dim)
+                              if schema.get_moa_header().attribute(i).isNominal()]
+        leaf_preds = {'MajorityClass': 'mc', 'NaiveBayes': 'nb', 'NaiveBayesAdaptive': 'nba'}
+        self.efdt = river.tree.ExtremelyFastDecisionTreeClassifier(grace_period=grace_period,
+                                                                   min_samples_reevaluate=min_samples_reevaluate,
+                                                                   nominal_attributes=nominal_attributes,
+                                                                   leaf_prediction=leaf_preds[leaf_prediction])
+
+    def river_input_format(self, x):
+        return dict(zip([i for i in range(self.input_dim)], x))
+
+    def predict(self, instance: Instance):
+        x = self.river_input_format(instance.x)
+        return self.efdt.predict_one(x=x)
+
+    def predict_proba(self, instance: Instance):
+        x = self.river_input_format(instance.x)
+        return list(self.efdt.predict_proba_one(x).values())
+
+    def train(self, instance: Instance):
+        x = self.river_input_format(instance.x)
+        self.efdt.learn_one(x=x, y=instance.y_index)
+
+    def c_complexity(self):
+        return self.efdt.n_nodes

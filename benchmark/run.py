@@ -4,8 +4,8 @@ from benchmark.hyperparameter_tuning_pool import ModelPool
 from sohot.sohot_ensemble_layer import SoftHoeffdingTreeLayer
 from capymoa.classifier import HoeffdingTree, EFDT, HoeffdingAdaptiveTree, AdaptiveRandomForestClassifier, \
     StreamingRandomPatches
-from benchmark.helpers import SGDClassifierMod, HoeffdingTreeLimit, HoeffdingAdaptiveTreeMod, HoeffdingTreeRiver, \
-    HoeffdingAdaptiveTreeRiver
+from benchmark.helpers import SGDClassifierMod, HoeffdingTreeLimit, HoeffdingTreeMod, HoeffdingAdaptiveTreeMod, \
+    HoeffdingTreeRiver, HoeffdingAdaptiveTreeRiver, EFDTMod, EFDTRiver
 from pathlib import Path
 import pandas as pd
 import yaml
@@ -28,7 +28,8 @@ def set_experiments(data_name, seed=1, data_dir=".", output_path="./benchmark/da
         (HoeffdingTreeLimit(schema=schema, random_seed=seed, node_limit=127), f"{output_path}/HTLimit"),
         (HoeffdingAdaptiveTree(schema=schema, random_seed=seed), f"{output_path}/HAT"),
         (EFDT(schema=schema, random_seed=seed), f"{output_path}/EFDT"),
-        (SGDClassifierMod(schema=schema, loss='log_loss', random_seed=seed), f"{output_path}/SGDClassifier")
+        (SGDClassifierMod(schema=schema, loss='log_loss', random_seed=seed), f"{output_path}/SGDClassifier"),
+        # (TreeEnsembleLayerStreaming(schema=schema, measure_transparency=True), f"{output_path}/TEL")
     ]
     for model, output_path in models:
         compute_complexity = output_path.endswith('SoHoT')
@@ -36,7 +37,7 @@ def set_experiments(data_name, seed=1, data_dir=".", output_path="./benchmark/da
                         seed=seed, output_path=output_path, compute_complexity=compute_complexity)
 
 
-def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="./benchmark/data", k=5):
+def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="./benchmark/data/evaluation_results", k=5):
     # Read yaml file
     with open('./benchmark/parameters.yaml', 'r') as f:
         config_data = yaml.safe_load(f)
@@ -49,7 +50,7 @@ def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="
     schema = data_stream.get_schema()
     for name, option in options:
         pool_models = []
-        compute_complexity = False
+        compute_complexity = True
         # combinations
         option = list(itertools.product(*(option.values())))
         for opt in option:
@@ -63,7 +64,8 @@ def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="
                     m = HoeffdingTreeRiver(schema=schema, grace_period=opt[0], confidence=float(opt[1]),
                                            leaf_prediction=opt[2], random_seed=seed)
                 else:
-                    m = HoeffdingTree(schema=schema, grace_period=opt[0], confidence=float(opt[1]), leaf_prediction=opt[2],
+                    m = HoeffdingTreeMod(schema=schema, grace_period=opt[0], confidence=float(opt[1]),
+                                      leaf_prediction=opt[2],
                                       random_seed=seed)
                 output_path_c = f"{output_path}/HT"
             elif name.__eq__('hoeffding_tree_limit_options'):
@@ -75,9 +77,12 @@ def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="
                                            leaf_prediction=opt[2], random_seed=seed, node_limit=opt[3])
                 output_path_c = f"{output_path}/HT_limit"
             elif name.__eq__('EFDT_options'):
-                m = EFDT(schema=schema, grace_period=opt[0],
-                         min_samples_reevaluate=opt[1], leaf_prediction=opt[2],
-                         random_seed=seed)
+                if data_name.__eq__('epsilon'):
+                    m = EFDTRiver(schema=schema, grace_period=opt[0], min_samples_reevaluate=int(opt[1]),
+                                  leaf_prediction=opt[2], random_seed=seed)
+                else:
+                    m = EFDTMod(schema=schema, grace_period=opt[0], min_samples_reevaluate=opt[1], leaf_prediction=opt[2],
+                             random_seed=seed)
                 output_path_c = f"{output_path}/EFDT"
             elif name.__eq__('hat_options'):
                 if data_name.__eq__('epsilon'):
@@ -92,6 +97,14 @@ def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="
                 m = SGDClassifierMod(schema=schema, loss=opt[0], penalty=opt[1], learning_rate=opt[2]['lr'],
                                      eta0=opt[2]['eta0'], random_seed=seed)
                 output_path_c = f"{output_path}/SGDClassifier"
+                compute_complexity = False
+            elif name.__eq__('tel_options'):
+                # todo remove this since tf is not installed in other venv
+                from benchmark.tel_streaming import TreeEnsembleLayerStreaming
+                m = TreeEnsembleLayerStreaming(schema=schema, trees_num=1, depth=opt[0], smooth_step_param=opt[1],
+                                               learning_rate=float(opt[2]), seed=seed)
+                output_path_c = f"{output_path}/TEL"
+                compute_complexity = False
             pool_models.append(m)
         model = ModelPool(models=pool_models, k=k)
         run_experiments(data_stream=data_stream, data_name=data_name, model=model, n_instance_limit=n_instance_limit,

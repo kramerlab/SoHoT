@@ -34,3 +34,8 @@ sgd_clf_options: {
     {lr: 'constant', eta0: 0.001}
     ]
 }
+tel_options: {
+  max_depth: [5, 6, 7],
+  smooth_step_param: [1, 10],
+  learning_rate: [1e-2, 1e-3]
+}

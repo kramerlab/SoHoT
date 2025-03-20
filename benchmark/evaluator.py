@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from sklearn.metrics import roc_auc_score, log_loss
 from moa.core import Utils
+import math
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -24,6 +25,19 @@ class TreeEvaluator:
         self.tree_complexities = []
         self.sum_tree_complexities = []
 
+    def _fill_y_pred(self, y_pred):
+        # if not all classes has been discovered, add zero for unobserved classes
+        if y_pred is not None \
+                and len(y_pred) >= 2 \
+                and sum(y_pred) != 0 \
+                and not any(np.isnan(y_pred_v) for y_pred_v in y_pred):
+            while len(y_pred) != len(self.label_indices):
+                y_pred.append(0.)
+        else:
+            y_pred = [0.] * max(1, len(self.label_indices))
+            y_pred[0] = 1.
+        return y_pred
+
     def update(self, y_pred, y_target, tree_complexity=None):
         self.num_instances += 1
         # Differentiate between SoHoT output and CapyMOA output
@@ -33,33 +47,32 @@ class TreeEvaluator:
         else:
             y_pred = list(y_pred) if y_pred is not None else None
             # First prediction special cases: y_pred for SGD is None, for HT weird behavior happens
+            # EFDT returns at the beginning something like [inf, 0.0] (only observed for epsilon data, vanished for river-EFDT)
             if y_pred is None \
                     or len(y_pred) != len(self.label_indices) \
                     or any(np.isnan(y_pred_v) for y_pred_v in y_pred) \
-                    or sum(y_pred) == 0:
-                # if not all classes has been discovered, add zero for unobserved classes
-                if y_pred is not None \
-                        and len(y_pred) >= 2 \
-                        and sum(y_pred) != 0 \
-                        and not any(np.isnan(y_pred_v) for y_pred_v in y_pred):
-                    while len(y_pred) != len(self.label_indices):
-                        y_pred.append(0.)
-                else:
-                    y_pred = [0.] * max(1, len(self.label_indices))
-                    y_pred[0] = 1.
+                    or sum(y_pred) == 0\
+                    or any(math.isinf(y_pred_v) for y_pred_v in y_pred):
+                y_pred = self._fill_y_pred(y_pred)
             # predict_proba returns class votes not probabilities
             if sum(y_pred) != 1:
                 y_pred = np.array([votes / sum(y_pred) for votes in y_pred])
             y_pred_index = Utils.maxIndex(y_pred)
+        try:
+            # Cross entropy loss
+            self.sum_cross_entropy_loss += log_loss(y_pred=np.array([y_pred]), y_true=np.array([y_target]),
+                                                    labels=self.label_indices)
+        except ValueError:
+            y_pred = self._fill_y_pred(y_pred)
+            self.sum_cross_entropy_loss += log_loss(y_pred=np.array([y_pred]), y_true=np.array([y_target]),
+                                                    labels=self.label_indices)
+
         self.clf_evaluator.update(y_target_index=y_target, y_pred_index=y_pred_index)
         self.clf_windowed_evaluator.update(y_target_index=y_target, y_pred_index=y_pred_index)
         # Area under roc curve
         self.y_pred_list.append(y_pred)
         self.y_target_list.append(y_target)
-        # Cross entropy loss
-        # print(f"y_pred: {np.array([y_pred])}, y_target: {np.array([y_target])}")
-        self.sum_cross_entropy_loss += log_loss(y_pred=np.array([y_pred]), y_true=np.array([y_target]),
-                                                labels=self.label_indices)
+
         if tree_complexity is not None:
             if not self.sum_tree_complexities:
                 self.sum_tree_complexities = tree_complexity
@@ -77,6 +90,7 @@ class TreeEvaluator:
         return auroc
 
     def get_evaluation(self):
+        print(f"Intermediate result of accuracy: {self.clf_evaluator.accuracy()}")
         metrics = {'Accuracy': self.clf_evaluator.accuracy(),
                    'F1': self.clf_evaluator.f1_score(),
                    'Auroc': self.get_auroc(),

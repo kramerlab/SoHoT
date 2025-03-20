@@ -3,11 +3,12 @@ from .internal_node import Node
 from .leaf_node import LeafNode
 from .sohot_helpers import soft_activation_derivative
 
-K_TOLERANCE = 0     # 1e-10
+K_TOLERANCE = 0  # 1e-10
 # If probability to reach the current leaf node > EPSILON then update leaf node statistics
 EPSILON = 0.25
 
 gradient_norms = {}
+
 
 class SoHoTFunction(torch.autograd.Function):
     @staticmethod
@@ -65,7 +66,7 @@ class SoHoTFunction(torch.autograd.Function):
         sample_to_node_batch = {}
         for b in range(batch_size):
             outputs[b], sample_to_node_batch = SoHoTFunction.forward_single_sample(inputs[b], outputs[b], model,
-                                                                                 sample_to_node_batch, weights)
+                                                                                   sample_to_node_batch, weights)
         # Return sample_to_node_batch to store the intermediate result in the setup_context and use it in the backward
         return outputs, sample_to_node_batch
 
@@ -151,10 +152,14 @@ class SoHoTFunction(torch.autograd.Function):
                     grad_loss_wrt_w = torch.mul(x, a_minus_b)
                     grad_weights[n.orientation_sequence][batch] = grad_loss_wrt_w
                 else:
-                    if n.left is not None: n.sum_g = n.left.sum_g
-                    else: n.sum_g = n.left_leaf.sum_g
-                    if n.right is not None: n.sum_g += n.right.sum_g
-                    else: n.sum_g += n.right_leaf.sum_g
+                    if n.left is not None:
+                        n.sum_g = n.left.sum_g
+                    else:
+                        n.sum_g = n.left_leaf.sum_g
+                    if n.right is not None:
+                        n.sum_g += n.right.sum_g
+                    else:
+                        n.sum_g += n.right_leaf.sum_g
         if model.growth_allowed: SoHoTFunction._update_tree_structure(model, max_depth)
         # transform gradient dict to list
         _, grads_parameter = zip(*[(k, v) for k, v in grad_weights.items()])

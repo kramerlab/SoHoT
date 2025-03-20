@@ -81,6 +81,7 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
     Path(f'{data_dir}/downloaded_datasets').mkdir(parents=True, exist_ok=True)
     data_stream_name, data_stream, n_instance_limit = "", None, None
     n_instance_limit = 1000000  # only if not other specified
+    # n_instance_limit = 100000  # todo for testing!!!!!
     # ------------------- Real-world data -------------------
     if dataset_name.__eq__('airlines'):
         csv_data_path = f'{data_dir}/downloaded_datasets/airlines.csv'
