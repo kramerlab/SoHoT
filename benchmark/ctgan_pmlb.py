@@ -11,9 +11,10 @@ if not os.path.exists("data/generated"): os.makedirs("data/generated")
 # Idea: Introduce alternating drift and no drift for m samples:
 #           Select a random but specific class 𝑐_1
 #           Sample approx. oversampling_rate examples which belong to 𝑐_1 (Oversampling step)
-def train_ctgan(dataset_name='sleep', n_generate=10**6, epochs=100, drift=True, n_drift=10, verbose=False,
-                oversample_rate = 0.75, seed=42):
-    if verbose: print("Generate synthetic data from {} with oversampling rate: {}".format(dataset_name, oversample_rate))
+def train_ctgan(dataset_name='sleep', n_generate=10 ** 6, epochs=100, drift=True, n_drift=10, verbose=False,
+                oversample_rate=0.75, seed=42):
+    if verbose: print(
+        "Generate synthetic data from {} with oversampling rate: {}".format(dataset_name, oversample_rate))
     data, discrete_col, targets = choose_data(dataset_name)
 
     ctgan = CTGAN(epochs=epochs, verbose=False)
@@ -27,7 +28,7 @@ def train_ctgan(dataset_name='sleep', n_generate=10**6, epochs=100, drift=True, 
         tolerance = int((oversample_rate * len_drift) // 10)
     for i in range(1, n_drift):
         if drift and i % 2 == 1:
-            target_rand = targets[random.randint(0,len(targets) - 1)]
+            target_rand = targets[random.randint(0, len(targets) - 1)]
             if verbose: print("{}. Drift: Oversample target class: {}".format(i, target_rand))
             d = ctgan.sample(len_drift)
             d_target = d[d['target'] == target_rand]
@@ -39,7 +40,8 @@ def train_ctgan(dataset_name='sleep', n_generate=10**6, epochs=100, drift=True, 
 
             n_target_remaining = min(d_target.shape[0], int(oversample_rate * len_drift) + tolerance)
             n_not_target_remaining = len_drift - n_target_remaining
-            d = pd.concat([d_target.iloc[:n_target_remaining, :], d_not_target.iloc[:n_not_target_remaining, :]], axis=0)
+            d = pd.concat([d_target.iloc[:n_target_remaining, :], d_not_target.iloc[:n_not_target_remaining, :]],
+                          axis=0)
             # shuffle the rows of the dataframe
             d = d.sample(frac=1)
         else:
@@ -47,16 +49,18 @@ def train_ctgan(dataset_name='sleep', n_generate=10**6, epochs=100, drift=True, 
         synthetic_data = pd.concat([synthetic_data, d], axis=0)
 
     # Write synthetic data to file
-    synthetic_data.to_csv("data/generated/seed_{}/oversample_{}/{}.csv".format(seed, oversample_rate, dataset_name), index=False)
+    synthetic_data.to_csv("data/generated/seed_{}/oversample_{}/{}.csv".format(seed, oversample_rate, dataset_name),
+                          index=False)
     if verbose:
         for t_class in targets:
-            print("Class: {}, frequency: {}".format(t_class, len(synthetic_data[(synthetic_data['target']==t_class)])))
+            print(
+                "Class: {}, frequency: {}".format(t_class, len(synthetic_data[(synthetic_data['target'] == t_class)])))
 
 
 def choose_data(dataset_name):
     if dataset_name.__eq__('sleep'):
         data = pd.read_csv('data/pmlb/sleep.tsv', sep='\t', skiprows=0, header=0)
-        discrete_col = ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12','target']
+        discrete_col = ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'target']
         targets = [0, 1, 2, 3]
     elif dataset_name.__eq__('churn'):
         data = pd.read_csv('data/pmlb/churn.tsv', sep='\t', header=0)

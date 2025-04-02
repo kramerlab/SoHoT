@@ -7,7 +7,9 @@ import river
 import re
 
 
-# In CapyMOA Version 0.8 SGDClassifier does not return anything!
+# Note: - Epsilon data is not working for CapyMOA's Hoeffding Tree variants (due to the amount of attributes and
+#         normalization). Use River's Hoeffding tree instead!
+#       - In CapyMOA Version 0.8 SGDClassifier does not return anything!
 class SGDClassifierMod(SGDClassifier):
     def predict_proba(self, instance: Instance):
         if not self._trained_at_least_once: return None

@@ -2,14 +2,22 @@ import pandas as pd
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import numpy as np
 from benchmark.run import plot_transparency
 from critdd import Diagram
 from scipy import stats
+from itertools import combinations
+from pathlib import Path
 
 
-def get_df_summary(data_names, seeds, model_names, metric, evaluation_method):
-    table = pd.DataFrame(index=data_names, columns=model_names)
+def get_df_summary(data_names, seeds, model_names, metric, evaluation_method, data_names_latex_format=None):
+    if metric.__eq__('efficiency'):
+        return get_df_efficiency(data_names, seeds, model_names, evaluation_method, data_names_latex_format)
+    if data_names_latex_format is None:
+        table = pd.DataFrame(index=data_names, columns=model_names)
+    else:
+        table = pd.DataFrame(index=list(data_names_latex_format.values()), columns=model_names)
     for model in model_names:
         for data_name in data_names:
             value = 0
@@ -25,10 +33,23 @@ def get_df_summary(data_names, seeds, model_names, metric, evaluation_method):
                         pass
             if seeds_seen > 0:  # Average results
                 value /= seeds_seen
+                if data_names_latex_format is not None:
+                    data_name = data_names_latex_format[data_name.replace("_", " ")]
                 table.at[data_name, model] = value
     table.index = table.index.str.replace("_", " ")
     return table
 
+
+def make_latex_table(data_names, seeds, model_names, metric, evaluation_method, data_names_latex_format=None):
+    table = get_df_summary(data_names=data_names, seeds=seeds, model_names=model_names, metric=metric,
+                           evaluation_method=evaluation_method, data_names_latex_format=data_names_latex_format)
+
+    # Add mean ranks
+    ranks = table.rank(axis=1, method='average', ascending=False)
+    mean_ranks = ranks.mean()
+    table.loc['Mean Rank'] = mean_ranks
+
+    print(table.style.highlight_max(axis=1, props="textbf:--rwrap;").format(precision=3).to_latex())
 
 # Paired t-test
 def get_significances(data_names, seeds, model_names, metric, evaluation_method, significance_level=0.05):
@@ -39,6 +60,17 @@ def get_significances(data_names, seeds, model_names, metric, evaluation_method,
             for seed in seeds:
                 file_path = f'./data/mogon_results{evaluation_method}/{model}/{data_name}_summary-seed-{seed}.csv'
                 df = pd.read_csv(file_path)
+                # Add efficiency value
+                if metric.__eq__('efficiency'):
+                    auroc_val = df.iloc[0]['Auroc']
+                    if model.__eq__('TEL'):
+                        node_size_val = 149.3
+                    else:
+                        node_size_val = np.mean(
+                            [df.iloc[0][f"Avg Tree {tree_idx} Complexity"] for tree_idx in range(12)])
+                    efficiency = auroc_val / np.log2(node_size_val)
+                    df['efficiency'] = [efficiency]
+
                 if i == 0:
                     model_a[data_name].append(df.iloc[0][metric])
                 else:
@@ -51,45 +83,39 @@ def get_significances(data_names, seeds, model_names, metric, evaluation_method,
                 n_significant_better_model_a += 1
             else:
                 n_significant_better_model_b += 1
-    print(f"Model A is significant better on {n_significant_better_model_a} datasets and model B on {n_significant_better_model_b}.")
+    print(
+        f"Model A is significant better on {n_significant_better_model_a} datasets and model B on {n_significant_better_model_b}.")
     return n_significant_better_model_a, n_significant_better_model_b
 
 
-def make_latex_table(data_names, seeds, model_names, metric, evaluation_method):
-    table = get_df_summary(data_names=data_names, seeds=seeds, model_names=model_names, metric=metric,
-                           evaluation_method=evaluation_method)
-
-    # Add mean ranks
-    ranks = table.rank(axis=1, method='average', ascending=False)
-    mean_ranks = ranks.mean()
-    table.loc['Mean Rank'] = mean_ranks
-
-    print(table.style.highlight_max(axis=1, props="textbf:--rwrap;").format(precision=3).to_latex())
-
-
-def compare_sohot_ht(data_names, seeds, metric, evaluation_method):
+def significances_heatmap(data_names, seeds, model_names, metric, evaluation_method, model_names_latex_format):
     fontsize = 23
-    model_names = ['SoHoT', 'HT', 'HT_limit']
-    n_significance_table = pd.DataFrame(index=model_names, columns=model_names)
-    for model_a in model_names: # set diagonal to zero
-        n_significance_table.at[model_a, model_a] = 0
-    for model_a, model_b in [('SoHoT', 'HT'), ('SoHoT', 'HT_limit'), ('HT', 'HT_limit')]:
+    # n_significance_table = pd.DataFrame(index=model_names, columns=model_names)
+    model_names_l = [model_names_latex_format[model_name] for model_name in model_names]
+    n_significance_table = pd.DataFrame(index=model_names_l, columns=model_names_l)
+    for model_a in model_names:  # set diagonal to zero
+        n_significance_table.at[model_names_latex_format[model_a], model_names_latex_format[model_a]] = 0
+    model_pairs = list(combinations(model_names, 2))
+    for model_a, model_b in model_pairs:
         m_names = [model_a, model_b]
         n_significant_better_model_a, n_significant_better_model_b = get_significances(data_names, seeds, m_names,
                                                                                        metric, evaluation_method)
-        n_significance_table.at[model_a, model_b] = n_significant_better_model_a
-        n_significance_table.at[model_b, model_a] = n_significant_better_model_b
+        n_significance_table.at[
+            model_names_latex_format[model_a], model_names_latex_format[model_b]] = n_significant_better_model_a
+        n_significance_table.at[
+            model_names_latex_format[model_b], model_names_latex_format[model_a]] = n_significant_better_model_b
 
     plt.figure(figsize=(9, 7))
     n_significance_table = n_significance_table.astype(float)
-    ax = sns.heatmap(n_significance_table, annot=True, linewidths=0.5, cmap="Blues", annot_kws={"size": fontsize})  # cmap="coolwarm"
+    ax = sns.heatmap(n_significance_table, annot=True, linewidths=0.5, cmap="Blues",
+                     annot_kws={"size": fontsize})  # cmap="coolwarm"
     plt.xticks(fontsize=fontsize, rotation=45)
     plt.yticks(fontsize=fontsize, rotation=0)
     cbar = ax.collections[0].colorbar  # Get color bar object
     cbar.ax.tick_params(labelsize=fontsize)  # Set font size for scale labels
     plt.tight_layout()
-    plt.show()
-    # plt.savefig(f"data/images_sohot/paper/figure-heatmap.pdf", format="pdf")
+    # plt.show()
+    plt.savefig(f"data/paper-images/figure-heatmap-{metric}.pdf", format="pdf")
 
 
 # https://mirkobunse.github.io/critdd/
@@ -114,7 +140,7 @@ def get_cridd(data_names, seeds, model_names, metric, evaluation_method):
 
     # export the diagram to a file
     diagram.to_file(
-        f"./data/images_sohot/critdd-{metric}.tex",
+        f"./data/paper-images/critdd-{metric}.tex",
         alpha=.05,
         adjustment="holm",
         reverse_x=True,
@@ -122,65 +148,68 @@ def get_cridd(data_names, seeds, model_names, metric, evaluation_method):
     )
 
 
-def compare_sohot_hat(data_names, seeds, evaluation_method):
-    plot_scatter = False
-    model_names = ['SoHoT', 'HAT']
+def get_df_tree_size(data_names, seeds, evaluation_method, data_names_latex_format):
+    model_names = ['SoHoT', 'HT', 'HAT', 'EFDT']
     table_avg = None
     for i in range(12):
         metric = f"Avg Tree {i} Complexity"
-        table = get_df_summary(data_names, seeds, model_names, metric, evaluation_method).abs()
+        table = get_df_summary(data_names, seeds, model_names, metric, evaluation_method, data_names_latex_format).abs()
         if table_avg is None:
             table_avg = table
         else:
             table_avg = pd.concat([table_avg, table])
     table_avg = table_avg.groupby(level=0).mean()
-    # Visualization: Scatter plot?
-    if plot_scatter:
-        plt.scatter(data_names, table_avg['SoHoT'])
-        plt.scatter(data_names, table_avg['HAT'])
-        plt.xticks(rotation=45)
-        plt.ylabel("Number of nodes")
-        plt.legend(model_names)
-        plt.tight_layout()
-        plt.show()
+    # Number of nodes for TEL not measured, therefore add manually the average number
+    table_avg['TEL'] = [149.3 for _ in data_names]
+    return table_avg
 
-    # Show trade-off: Predictive performance / Tree size
-    table_auc = get_df_summary(data_names, seeds, model_names, 'Auroc', evaluation_method)
-    plt.scatter(data_names, table_auc['SoHoT'] / table_avg['SoHoT'])
-    plt.scatter(data_names, table_auc['HAT'] / table_avg['HAT'])
+
+def get_df_efficiency(data_names, seeds, model_names, evaluation_method, data_names_latex_format):
+    table_tree_size = get_df_tree_size(data_names, seeds, evaluation_method, data_names_latex_format)
+    table_tree_size_log = table_tree_size.applymap(np.log2)
+    table_auc = get_df_summary(data_names, seeds, model_names, 'Auroc', evaluation_method, data_names_latex_format)
+    return table_auc.div(table_tree_size_log)
+
+
+def compare_number_of_nodes(data_names, seeds, evaluation_method, data_names_latex_format):
+    model_names = ['SoHoT', 'HT', 'HAT', 'EFDT']
+    table_avg = get_df_tree_size(data_names, seeds, model_names, evaluation_method, data_names_latex_format)
+    # Visualization: Scatter plot
+    # viridis = cm.get_cmap('viridis', len(model_names) + 1)
+    viridis = cm.get_cmap('tab10', len(model_names) + 1)
+    for j, model_name in enumerate(model_names):
+        plt.scatter(list(data_names_latex_format.values()), table_avg[model_name], color=viridis(j))
+    plt.scatter(list(data_names_latex_format.values()), [150 for _ in data_names], color=viridis(4))
+    model_names.append('ST')
+
     plt.xticks(rotation=45)
     plt.ylabel("Number of nodes")
-    plt.legend(model_names)
+    plt.ylim(0, 510)
+    plt.legend(model_names, loc="upper right")
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(f"data/paper-images/figure-num_nodes.pdf", format="pdf")
 
 
-def get_table_performance_complexity(data_names, seeds, evaluation_method):
+def get_table_performance_complexity(data_names, seeds, evaluation_method, data_names_latex_format):
     model_names = ['SoHoT', 'HT', 'HAT', 'EFDT', 'SGDClassifier', 'TEL']
-    table_avg = None
-    for i in range(12):
-        metric = f"Avg Tree {i} Complexity"
-        table = get_df_summary(data_names, seeds, model_names, metric, evaluation_method).abs()
-        if table_avg is None:
-            table_avg = table
-        else:
-            table_avg = pd.concat([table_avg, table])
-    table_complexity = table_avg.groupby(level=0).mean()
-    table_complexity['TEL'] = [149.3] * len(table_complexity['SoHoT'])      # TEL: #nodes=2*node_depth ((2*4*(2^5 + 2^6 + 2^7))/12)
-
+    # Get Auroc table
     table_auc = get_df_summary(data_names, seeds, model_names, 'Auroc', evaluation_method)
-    # Apply log_2 to each entry
-    table_complexity.applymap(np.log2)
-    table_trade_off = table_auc.div(table_complexity)
+    # Get efficiency table
+    table_trade_off = get_df_efficiency(data_names, seeds, model_names, evaluation_method, None)
+    table_trade_off['SGDClassifier'] = [np.nan for _ in data_names]
+    table_trade_off = table_trade_off[model_names]
 
+    print_auroc_bold = False
     for data_name in data_names:
         data_name = data_name.replace("_", " ")
-        row = f"{data_name} & AUC"
+        row = f"{data_names_latex_format[data_name]} & AUC"
         idx_max_auc = table_auc.idxmax(axis=1, skipna=True)
         for i, model_name in enumerate(model_names):
-            # if model_name == idx_max_auc.loc[data_name]: row += f" & \\textbf{{{table_auc[model_name][data_name]:.3f}}}"
-            # else:
-            row += f" & {table_auc[model_name][data_name]:.3f}"
+            if print_auroc_bold and model_name == idx_max_auc.loc[data_name]:
+                row += f" & \\textbf{{{table_auc[model_name][data_name]:.3f}}}"
+            else:
+                row += f" & {table_auc[model_name][data_name]:.3f}"
         row += "\\\\\n"
         row += f" & Efficiency "
         idx_max_auc = table_trade_off.idxmax(axis=1, skipna=True)
@@ -203,45 +232,105 @@ def get_table_performance_complexity(data_names, seeds, evaluation_method):
             ranks += f" & {mean_rank:.3f}"
         ranks += " \\\\"
         print(ranks)
+
     print_ranks(table_auc.rank(axis=1, method='average', ascending=False), "AUC")
     print_ranks(table_trade_off.rank(axis=1, method='average', ascending=False), "efficiency")
 
     # print(table_trade_off.idxmax(axis=1, skipna=True))
 
+
+def compare_run_times(data_name, model_names, seeds):
+    file_path = "./data/evaluation_results"
+    metrics = ['forward', 'backward']
+    colors = ['#276ec2', '#179b25']
+    for metric in metrics:
+        plt.figure(figsize=(6, 3))
+        plt.rcParams.update({'font.size': 13})
+        for i_m, model_name in enumerate(model_names):
+            df = None
+            for seed in seeds:
+                df_tmp = pd.read_csv(f"{file_path}/{model_name}/time/{data_name}_seed_{seed}_time_details.csv")
+                if df is None:
+                    df = df_tmp
+                else:
+                    df = (df + df_tmp) / 2
+            df = df.rolling(window=500).mean()
+            plt.plot(df[metric], color=colors[i_m])
+        plt.legend(['SoHoT', 'ST'])
+        plt.xlabel("Instance")
+        plt.ylabel("Time per instance")
+        plt.tight_layout()
+        # plt.title(data_name)
+        # plt.show()
+        plt.savefig(f"data/paper-images/figure-time-{data_name}-{metric}.pdf", format="pdf")
+
+
+def boxplot_run_times(data_names, seeds, data_names_latex_format, metric):
+    file_path = "./data/time_measurements"
+    plt.figure(figsize=(5, 5.5))
+    df = pd.DataFrame(columns=['data', 'model', 'seed', 'time'])
+    i = 0
+
+    for data_name in data_names:
+        for seed in seeds:
+            for model_name in ['SoHoT', 'TEL']:
+                df_tmp = pd.read_csv(f"{file_path}/{model_name}/time/{data_name}_seed_{seed}_time_details.csv")
+                df.loc[i] = [data_names_latex_format[data_name.replace("_", " ")], model_name, seed,
+                             df_tmp[metric].mean()]
+                i += 1
+
+    sns.set_theme(style="ticks")
+    sns.boxplot(x='data', y='time', hue='model', palette=["#6495ED", "#9FE2BF"], data=df)
+
+    sns.despine(offset=10)
+    plt.xlabel("Data stream")
+    plt.ylabel("Average time per instance")
+    plt.tight_layout()
+    plt.show()
+    # plt.savefig(f"data/images_sohot/paper/figure-time-{metric}.pdf", format="pdf")
+
+
 if __name__ == '__main__':
+    Path(f".data/paper-images").mkdir(parents=True, exist_ok=True)
     metric = 'Auroc'
     evaluation_method = "/hyperparameter_tuned_results"
-    data_names = ['sleep', 'ann_thyroid', 'churn', 'nursery', 'twonorm', 'optdigits', 'texture', 'satimage',
-                  'AGR_a', 'AGR_g', 'RBF_f', 'RBF_m', 'SEA50', 'SEA_5E5', 'HYP_f', 'HYP_m',
-                  'epsilon', 'poker', 'covtype', 'kdd99'
-                  ]
+    data_names = [
+        'SEA50', 'SEA_5E5', 'HYP_f', 'HYP_m', 'RBF_f', 'RBF_m', 'AGR_a', 'AGR_g',
+        'sleep', 'nursery', 'twonorm', 'ann_thyroid', 'satimage', 'optdigits', 'texture', 'churn',
+        'poker', 'kdd99', 'covtype', 'epsilon',
+    ]
+    data_names_latex_format = {'SEA50': '$\\text{SEA}_f$', 'SEA 5E5': '$\\text{SEA}_m$',
+                               'HYP f': '$\\text{HYP}_f$', 'HYP m': '$\\text{HYP}_m$', 'RBF f': '$\\text{RBF}_f$',
+                               'RBF m': '$\\text{RBF}_m$', 'AGR a': '$\\text{AGR}_a$', 'AGR g': '$\\text{AGR}_g$',
+                               'sleep': 'Sleep', 'nursery': 'Nursery', 'twonorm': 'Twonorm',
+                               'ann thyroid': 'Ann-Thyroid',
+                               'satimage': 'Satimage', 'optdigits': 'Optdigits', 'texture': 'Texture', 'churn': 'Churn',
+                               'poker': 'Poker', 'kdd99': 'Kdd99', 'covtype': 'Covtype',
+                               'epsilon': 'Epsilon'}
     seeds = [0, 1, 2, 3, 4]
+    model_names_latex_format = {'SoHoT': 'SoHoT', 'HT': 'HT', 'HT_limit': '$\\text{HT}_{\\text{limit}}$', 'HAT': 'HAT',
+                                'EFDT': 'EFDT', 'SGDClassifier': 'SGDClassifier', 'TEL': 'ST'}
 
-    # 1. Evaluation: SoHoT vs. HT and HT_limit
-    # compare_sohot_ht(data_names, seeds, metric, evaluation_method)
+    # Figure A1: Average number of nodes
+    compare_number_of_nodes(data_names, seeds, evaluation_method, data_names_latex_format)
 
-    # 2. Evaluation: SoHoT vs. state-of-the-art-ensemble methods
-    model_names = ['SoHoT', 'HT', 'HAT', 'EFDT', 'SGDClassifier']
-    # make_latex_table(data_names, seeds, model_names, metric, evaluation_method)
+    # Table 1: Results in terms of AUROC and efficiency
+    get_table_performance_complexity(data_names, seeds, evaluation_method, data_names_latex_format)
 
-    # Ensembles
-    make_latex_table(data_names, seeds, ['SoHoT', 'ARF', 'SRP'], metric, "/ensemble_10_results")
+    # Figure 4: Heatmap with paired t-test
+    significances_heatmap(data_names, seeds, ['SoHoT', 'HT', 'HAT', 'EFDT', 'TEL'], 'efficiency', evaluation_method,
+                          model_names_latex_format)
 
-    # 2.2 Statistical tests
-    # get_significances(data_names, seeds, ['SoHoT', 'HAT'], metric, evaluation_method)
+    # Figure 5, Figure A2: Critical difference diagram (efficiency, AUROC)
+    get_cridd(data_names=data_names, seeds=seeds, model_names=['SoHoT', 'HT', 'HAT', 'EFDT', 'SGDClassifier', 'TEL'],
+              metric=metric, evaluation_method=evaluation_method)
+    get_cridd(data_names=data_names, seeds=seeds, model_names=['SoHoT', 'HT', 'HAT', 'EFDT', 'TEL'],
+              metric='efficiency', evaluation_method=evaluation_method)
 
-    # 3. Evaluation: Critical difference diagram
-    model_names = ['SoHoT', 'HT', 'HAT', 'EFDT', 'SGDClassifier']
-    # get_cridd(data_names=data_names, seeds=seeds, model_names=model_names, metric=metric,
-    #           evaluation_method=evaluation_method)
-
-    # 3.2 SoHoT vs. HAT
-    # compare_sohot_hat(data_names, seeds, evaluation_method)
-    # get_table_performance_complexity(data_names, seeds, evaluation_method)
-
-    # 4. Evaluation: SoHoT vs. Soft tree
-
-    # 5. Evaluation: Transparency of SoHoTs
+    # Figure 8: Transparent tree expansion
     visualize_tree_at = [2400, 2600, 4900, 5100, 7000, 7400, 7600]
-    # visualize_tree_at = [i for i in range(1, 10000, 100)]
-    # plot_transparency(data_name='AGR_small', seed=1, visualize_tree_at=visualize_tree_at, save_img=True)
+    plot_transparency(data_name='AGR_small', seed=1, visualize_tree_at=visualize_tree_at, save_img=True)
+
+    # Figure 9:
+    for data_name in ['RBF_f', 'SEA50']:
+        compare_run_times(data_name=data_name, model_names=['SoHoT', 'TEL'], seeds=seeds)

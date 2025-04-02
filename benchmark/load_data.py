@@ -1,6 +1,6 @@
 from capymoa.datasets import Electricity, Covtype
 from capymoa.stream.generator import AgrawalGenerator, RandomRBFGeneratorDrift, SEA, HyperPlaneClassification
-from capymoa.stream import ARFFStream, NumpyStream
+from capymoa.stream import ARFFStream
 import pandas as pd
 from capymoa.stream.drift import DriftStream, AbruptDrift, GradualDrift
 import os
@@ -81,7 +81,6 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
     Path(f'{data_dir}/downloaded_datasets').mkdir(parents=True, exist_ok=True)
     data_stream_name, data_stream, n_instance_limit = "", None, None
     n_instance_limit = 1000000  # only if not other specified
-    # n_instance_limit = 100000  # todo for testing!!!!!
     # ------------------- Real-world data -------------------
     if dataset_name.__eq__('airlines'):
         csv_data_path = f'{data_dir}/downloaded_datasets/airlines.csv'
@@ -131,7 +130,7 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
         data.columns = ['S1', 'C1', 'S2', 'C2', 'S3', 'C3', 'S4', 'C4', 'S5', 'C5', 'class']
         create_arff(csv_data_path=None, data_dir=data_dir, data_name='poker', data_frame=data)
         data_stream = ARFFStream(path=f'{data_dir}/poker.arff')
-    elif dataset_name.__eq__('kdd99'):
+    elif dataset_name.startswith('kdd99'):
         n_instance_limit = None
         feature_names = [
             "duration", "protocol_type", "service", "flag", "src_bytes", "dst_bytes", "land",
@@ -155,6 +154,8 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
         create_arff(csv_data_path=csv_data_path, data_name='kdd99',
                     data_dir=data_dir, feature_names=feature_names, index_col=None, header=None)
         data_stream = ARFFStream(path=f'{data_dir}/kdd99.arff')
+        if dataset_name.__eq__('kdd99_small'):
+            n_instance_limit = 2500000
     # ------------------- CTGAN with real-world data -------------------
     elif dataset_name.__eq__('sleep'):
         # Make arff file and then use ARFFStream to reach the correct schema

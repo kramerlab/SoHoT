@@ -10,10 +10,8 @@ from pathlib import Path
 import pandas as pd
 import yaml
 import itertools
-
-
-# Note: Epsilon data is not working for CapyMOA's Hoeffding Tree variants (due to the amount of attributes and
-# normalization). Use River's Hoeffding tree instead!
+import time
+# from benchmark.tel_streaming import TreeEnsembleLayerStreaming
 
 
 def set_experiments(data_name, seed=1, data_dir=".", output_path="./benchmark/data"):
@@ -23,16 +21,18 @@ def set_experiments(data_name, seed=1, data_dir=".", output_path="./benchmark/da
     schema = data_stream.get_schema()
     output_path += "/evaluation_results"
     models = [
-        (SoftHoeffdingTreeLayer(schema=schema, trees_num=1, seed=seed), f"{output_path}/SoHoT"),
+        (SoftHoeffdingTreeLayer(schema=schema, trees_num=1, lr=0.01, ssp=1., seed=seed), f"{output_path}/SoHoT"),
         (HoeffdingTree(schema=schema, random_seed=seed), f"{output_path}/HT"),
         (HoeffdingTreeLimit(schema=schema, random_seed=seed, node_limit=127), f"{output_path}/HTLimit"),
         (HoeffdingAdaptiveTree(schema=schema, random_seed=seed), f"{output_path}/HAT"),
         (EFDT(schema=schema, random_seed=seed), f"{output_path}/EFDT"),
         (SGDClassifierMod(schema=schema, loss='log_loss', random_seed=seed), f"{output_path}/SGDClassifier"),
-        # (TreeEnsembleLayerStreaming(schema=schema, measure_transparency=True), f"{output_path}/TEL")
+        # (TreeEnsembleLayerStreaming(schema=schema, trees_num=1, learning_rate=0.01, smooth_step_param=1.,
+        #                             measure_transparency=False), f"{output_path}/TEL")
     ]
+
     for model, output_path in models:
-        compute_complexity = output_path.endswith('SoHoT')
+        compute_complexity = False
         run_experiments(data_stream=data_stream, data_name=data_name, model=model, n_instance_limit=n_instance_limit,
                         seed=seed, output_path=output_path, compute_complexity=compute_complexity)
 
@@ -111,23 +111,6 @@ def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="
                         seed=seed, output_path=output_path_c, compute_complexity=compute_complexity)
 
 
-def set_ensemble(data_name, ensemble_size=10, seed=1, data_dir=".", output_path="./benchmark/data"):
-    Path(f"{output_path}/ensemble_{ensemble_size}_results").mkdir(parents=True, exist_ok=True)
-    data_stream, n_instance_limit = load_data_stream(data_name, seed=seed, data_dir=data_dir)
-    schema = data_stream.get_schema()
-    output_path += f"/ensemble_{ensemble_size}_results"
-    models = [
-        (SoftHoeffdingTreeLayer(schema=schema, trees_num=ensemble_size, seed=seed), f"{output_path}/SoHoT"),
-        (AdaptiveRandomForestClassifier(schema=schema, ensemble_size=ensemble_size, random_seed=seed),
-         f"{output_path}/ARF"),
-        (StreamingRandomPatches(schema=schema, ensemble_size=ensemble_size, random_seed=seed), f"{output_path}/SRP"),
-    ]
-    for model, output_path in models:
-        compute_complexity = output_path.endswith('SoHoT')
-        run_experiments(data_stream=data_stream, data_name=data_name, model=model, n_instance_limit=n_instance_limit,
-                        seed=seed, output_path=output_path, compute_complexity=compute_complexity)
-
-
 def run_experiments(data_stream, data_name, model, n_instance_limit, seed, output_path, compute_complexity=False):
     data_stream.restart()
     tree_evaluator = TreeEvaluator(schema=data_stream.get_schema())
@@ -144,6 +127,7 @@ def run_experiments(data_stream, data_name, model, n_instance_limit, seed, outpu
         i += 1
         if n_instance_limit is not None and i == n_instance_limit:
             break
+
     if compute_complexity:
         tree_evaluator.update_complexity(model.c_complexity())
     # ----------- Print to file -----------
@@ -154,6 +138,34 @@ def run_experiments(data_stream, data_name, model, n_instance_limit, seed, outpu
     df = pd.DataFrame(metrics, index=[0])
     df.to_csv(f"{output_path}/{data_name}_summary-seed-{seed}.csv",
               mode="a", index=False, header=True)
+
+
+def run_time_experiments(data_stream, data_name, model, n_instance_limit, seed, output_path):
+    data_stream.restart()
+    i = 0
+    # Time measurement
+    time_before_while = time.time()
+    time_forward, time_backward = [], []
+    while data_stream.has_more_instances():
+        instance = data_stream.next_instance()
+        # ----------- Test -----------
+        start = time.time()
+        model.predict_proba(instance)
+        time_forward.append(time.time() - start)
+        # ----------- Train -----------
+        start = time.time()
+        model.train(instance)
+        time_backward.append(time.time() - start)
+        i += 1
+        if n_instance_limit is not None and i == n_instance_limit:
+            break
+    # Time measurement
+    time_after_while = time.time() - time_before_while
+    Path(f"{output_path}/time").mkdir(parents=True, exist_ok=True)
+    df = pd.DataFrame({'forward': time_forward, 'backward': time_backward})
+    df.to_csv(f"{output_path}/time/{data_name}_seed_{seed}_time_details.csv")
+    with open(f'{output_path}/time/{data_name}_seed_{seed}_time_summary.csv', 'a') as f:
+        print(f"{time_after_while}", file=f)
 
 
 def plot_transparency(data_name, seed=1, data_dir="./data", n_instance_limit=None, visualize_tree_at=[],
@@ -177,3 +189,20 @@ def plot_transparency(data_name, seed=1, data_dir="./data", n_instance_limit=Non
         if i == n_instances:
             break
         i += 1
+
+
+def set_ensemble(data_name, ensemble_size=10, seed=1, data_dir=".", output_path="./benchmark/data"):
+    Path(f"{output_path}/ensemble_{ensemble_size}_results").mkdir(parents=True, exist_ok=True)
+    data_stream, n_instance_limit = load_data_stream(data_name, seed=seed, data_dir=data_dir)
+    schema = data_stream.get_schema()
+    output_path += f"/ensemble_{ensemble_size}_results"
+    models = [
+        (SoftHoeffdingTreeLayer(schema=schema, trees_num=ensemble_size, seed=seed), f"{output_path}/SoHoT"),
+        (AdaptiveRandomForestClassifier(schema=schema, ensemble_size=ensemble_size, random_seed=seed),
+         f"{output_path}/ARF"),
+        (StreamingRandomPatches(schema=schema, ensemble_size=ensemble_size, random_seed=seed), f"{output_path}/SRP"),
+    ]
+    for model, output_path in models:
+        compute_complexity = output_path.endswith('SoHoT')
+        run_experiments(data_stream=data_stream, data_name=data_name, model=model, n_instance_limit=n_instance_limit,
+                        seed=seed, output_path=output_path, compute_complexity=compute_complexity)

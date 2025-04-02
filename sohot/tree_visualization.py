@@ -1,7 +1,3 @@
-# Graph Visualization of Soft Hoeffding Trees
-# Bibliography: NetworkX
-import sys
-
 import networkx as nx
 from .internal_node import Node
 from .leaf_node import LeafNode
@@ -12,6 +8,8 @@ from torch.nn import Softmax
 import re
 
 '''
+Graph Visualization of Soft Hoeffding Trees
+Using the bibliography NetworkX
 Note: Edge probabilities are visualized with 3 decimals, therefore probability 1 is not always 1.
     Color: #8FAADC
 '''
@@ -63,9 +61,7 @@ class SohotVisualization:
                         and self.schema.get_moa_header().attribute(i).numValues() > 2:
                     len_attribute_values = self.schema.get_moa_header().attribute(i).numValues()
                     start, end = i + feature_one_hot_offset, i + feature_one_hot_offset + len_attribute_values
-                    # impact = max(percentage_feature_impact[start:end])                        # max
                     impact = sum(percentage_feature_impact[start:end]) / (end - start)  # average
-                    # impact = statistics.geometric_mean(percentage_feature_impact[start:end])    # geometric mean (list contains zeros)
                     feature_one_hot_offset += len_attribute_values - 1
                 else:
                     impact = percentage_feature_impact[i + feature_one_hot_offset]

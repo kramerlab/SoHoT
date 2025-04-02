@@ -3,7 +3,7 @@ from .internal_node import Node
 from .leaf_node import LeafNode
 from .sohot_helpers import soft_activation_derivative
 
-K_TOLERANCE = 0  # 1e-10
+K_TOLERANCE = 0 # 1e-10
 # If probability to reach the current leaf node > EPSILON then update leaf node statistics
 EPSILON = 0.25
 
@@ -96,6 +96,8 @@ class SoHoTFunction(torch.autograd.Function):
         batch_size = inputs.size(dim=0)
         input_dim = model.input_dim
         grad_loss_wrt_x = inputs.new_zeros(batch_size, input_dim)
+        # Only for evaluation:
+        n_reachable_leaves = 0
 
         grad_weights = {}
         for k in weights:
@@ -107,11 +109,12 @@ class SoHoTFunction(torch.autograd.Function):
             x = inputs[batch]
             y = targets[batch]
             # Compute the gradients for the input and the weights
-            postorder = model.postorder_traversal(x)
+            postorder = model.postorder_traversal(x, K_TOLERANCE)
             grad_out = grad_output[batch]
             for node_idx, n in enumerate(postorder):
                 node_weight = model.weights.get(n.orientation_sequence)
                 if isinstance(n, LeafNode):
+                    n_reachable_leaves += 1
                     sample_to_node_c_leaf = sample_to_node_batch[n.orientation_sequence].pop(0)
                     grad_loss_wrt_o = torch.mul(grad_out, sample_to_node_c_leaf)
                     # Gradient dict
@@ -163,6 +166,7 @@ class SoHoTFunction(torch.autograd.Function):
         if model.growth_allowed: SoHoTFunction._update_tree_structure(model, max_depth)
         # transform gradient dict to list
         _, grads_parameter = zip(*[(k, v) for k, v in grad_weights.items()])
+
         return grad_loss_wrt_x, None, None, None, None, None, *grads_parameter
 
     # Update SoHoT, i.e. try to extend the tree based on the already processed samples stored in the leaves

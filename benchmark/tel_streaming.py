@@ -5,6 +5,7 @@
 #       Works only with Tensorflow version 2.9.0
 #   See: https://github.com/google-research/google-research/tree/master/tf_trees
 import sys
+
 sys.path.insert(1, '/home/user/TreeEnsembleLayer')
 
 from tf_trees import TEL
@@ -12,6 +13,8 @@ import tensorflow as tf
 import numpy as np
 from river import stats
 import math
+
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
 class TreeEnsembleLayerStreaming:
@@ -100,6 +103,40 @@ class TreeEnsembleLayerStreaming:
                 n_relevant_features += impact
         self.total_n_important_feat += n_relevant_features
 
+    def _soft_activation(self, v):
+        if v <= -0.5 / self.smooth_step_param:
+            out = 0.
+        elif v >= 0.5 / self.smooth_step_param:
+            out = 1.
+        else:
+            x = self.smooth_step_param * v + 0.5
+            x_squared = x * x
+            x_cubed = x_squared * x
+            out = -2. * x_cubed + 3. * x_squared
+        return out
+
+    def _count_reachable_leaves(self, x):
+        n_reachable_leaves = 0
+        node_weights = self.model.layers[0]._node_weights[0].numpy()
+        leaf_start = tf.shape(node_weights)[1]
+        to_traverse = [0]
+        while to_traverse:
+            i = to_traverse.pop()
+            if i >= leaf_start:     # Leaf node
+                n_reachable_leaves += 1
+            else:   # Internal node
+                weight_vec = node_weights[:, i]
+                weight_input_dot_product = np.dot(weight_vec, x[0])
+                if self._soft_activation(weight_input_dot_product) > 0:
+                    # Add left index only if it is reachable, i.e., S(<x,w_i>) > 0
+                    left_index = 2 * i + 1
+                    to_traverse.append(left_index)
+                if self._soft_activation(weight_input_dot_product) < 1:
+                    # Add right index only if it is reachable, i.e., 1 - S(<x,w_i>) > 0
+                    right_index = 2 * i + 2
+                    to_traverse.append(right_index)
+        return n_reachable_leaves
+
     def get_avg_explanation_len(self):
         return self.total_n_important_feat / (self.n_instances_seen * (pow(2, self.depth) - 1))
 
@@ -117,6 +154,8 @@ class TreeEnsembleLayerStreaming:
     def train(self, instance):
         x = self.transform_input(instance)
         y = self.transform_label(instance)
+        # self._count_reachable_leaves(x)
+
         self.model.train_on_batch(x, y)
         # Track length of explanation
         if self.measure_transparency:

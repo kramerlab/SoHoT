@@ -53,7 +53,6 @@ class SoftHoeffdingTree(nn.Module):
         :param seed: Random seed
         :type seed: int
         """
-        # super(SoftHoeffdingTree, self).__init__()
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -193,25 +192,25 @@ class SoftHoeffdingTree(nn.Module):
         return new_internal_node
 
     # Traverse the Soft Hoeffding Tree in postorder to do the backward pass from TEL (-> fractional tree)
-    def postorder_traversal(self, X):
+    def postorder_traversal(self, X, K_TOLERANCE):
         if isinstance(self.root, LeafNode):
             return [self.root]
-        return self.postorder_traversal_(self.root, X)
+        return self.postorder_traversal_(self.root, X, K_TOLERANCE)
 
-    def postorder_traversal_(self, node, X):
+    def postorder_traversal_(self, node, X, K_TOLERANCE):
         postorder = []
         if node is not None:
             if isinstance(node, Node):
                 weight_vec = self.weights[node.orientation_sequence]
                 routing_left_prob = node.forward(X, weight_vec)
-                if node.left is None and routing_left_prob > 0.:
-                    postorder = self.postorder_traversal_(node.left_leaf, X)
-                elif node.left is not None and routing_left_prob > 0.:
-                    postorder = self.postorder_traversal_(node.left, X)
-                if node.right is None and routing_left_prob < 1.:
-                    postorder += self.postorder_traversal_(node.right_leaf, X)
-                elif node.right is not None and routing_left_prob < 1.:
-                    postorder += self.postorder_traversal_(node.right, X)
+                if node.left is None and routing_left_prob > K_TOLERANCE:
+                    postorder = self.postorder_traversal_(node.left_leaf, X, K_TOLERANCE)
+                elif node.left is not None and routing_left_prob > K_TOLERANCE:
+                    postorder = self.postorder_traversal_(node.left, X, K_TOLERANCE)
+                if node.right is None and routing_left_prob < 1. - K_TOLERANCE:
+                    postorder += self.postorder_traversal_(node.right_leaf, X, K_TOLERANCE)
+                elif node.right is not None and routing_left_prob < 1. - K_TOLERANCE:
+                    postorder += self.postorder_traversal_(node.right, X, K_TOLERANCE)
             postorder.append(node)
         return postorder
 
