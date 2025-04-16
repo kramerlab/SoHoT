@@ -99,7 +99,7 @@ def set_hyperparameter_model_pool(data_name, seed=1, data_dir=".", output_path="
                 output_path_c = f"{output_path}/SGDClassifier"
                 compute_complexity = False
             elif name.__eq__('tel_options'):
-                # todo remove this since tf is not installed in other venv
+                # todo remove if tf is not installed in venv
                 from benchmark.tel_streaming import TreeEnsembleLayerStreaming
                 m = TreeEnsembleLayerStreaming(schema=schema, trees_num=1, depth=opt[0], smooth_step_param=opt[1],
                                                learning_rate=float(opt[2]), seed=seed)

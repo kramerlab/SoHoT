@@ -1,7 +1,7 @@
 venv
 *.sh
+!paper_results.sh
 .idea
 evaluation
 TODO.md
-benchmark/might_delete
 benchmark/data
