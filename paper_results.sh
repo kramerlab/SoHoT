@@ -9,3 +9,6 @@ do
 		echo "Finished on $DATASET with seed $SEED"
 	done
 done
+
+echo "Start plotting paper figures"
+python benchmark.plot_results.py
