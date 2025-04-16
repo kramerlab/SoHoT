@@ -9,6 +9,7 @@ from pathlib import Path
 import zipfile
 import gzip
 import tarfile
+from ctgan_pmlb import train_ctgan
 
 
 def create_arff(csv_data_path, data_name, data_dir, feature_names=None, index_col=None, missing_value=False,
@@ -158,19 +159,28 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
             n_instance_limit = 2500000
     # ------------------- CTGAN with real-world data -------------------
     elif dataset_name.__eq__('sleep'):
+        csv_data_path = f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/{dataset_name}.csv'
+        if not os.path.isfile(csv_data_path):   # Train CTGAN
+            train_ctgan(dataset_name=dataset_name, n_generate=n_instance_limit, seed=seed, data_dir=data_dir)
         # Make arff file and then use ARFFStream to reach the correct schema
         feature_names = ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'class']
-        create_arff(csv_data_path=f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/sleep.csv', data_dir=data_dir,
+        create_arff(csv_data_path=csv_data_path, data_dir=data_dir,
                     data_name=f'sleep_oversample_0.75_seed_{seed}', feature_names=feature_names, header=0,
                     nominal_attribute_idx=[3])
         data_stream = ARFFStream(path=f'{data_dir}/sleep_oversample_0.75_seed_{seed}.arff')
     elif dataset_name.__eq__('ann_thyroid'):
+        csv_data_path = f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/{dataset_name}.csv'
+        if not os.path.isfile(csv_data_path):   # Train CTGAN
+            train_ctgan(dataset_name=dataset_name, n_generate=n_instance_limit, seed=seed, data_dir=data_dir)
         feature_names = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15',
                          'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'class']
         create_arff(csv_data_path=f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/ann_thyroid.csv', data_dir=data_dir,
                     data_name=f'ann_thyroid_oversample_0.75_seed_{seed}', feature_names=feature_names, header=0)
         data_stream = ARFFStream(path=f'{data_dir}/ann_thyroid_oversample_0.75_seed_{seed}.arff')
     elif dataset_name.__eq__('churn'):
+        csv_data_path = f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/{dataset_name}.csv'
+        if not os.path.isfile(csv_data_path):   # Train CTGAN
+            train_ctgan(dataset_name=dataset_name, n_generate=n_instance_limit, seed=seed, data_dir=data_dir)
         feature_names = [
             'state', 'account length', 'area code', 'phone number', 'international plan',
             'voice mail plan', 'number vmail messages', 'total day minutes', 'total day calls',
@@ -184,18 +194,27 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
                     nominal_attribute_idx=[0, 2])
         data_stream = ARFFStream(path=f'{data_dir}/churn_oversample_0.75_seed_{seed}.arff')
     elif dataset_name.__eq__('nursery'):
+        csv_data_path = f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/{dataset_name}.csv'
+        if not os.path.isfile(csv_data_path):   # Train CTGAN
+            train_ctgan(dataset_name=dataset_name, n_generate=n_instance_limit, seed=seed, data_dir=data_dir)
         # finance (boolean), all other features are ordinal (they have an ordering), i. e., no nominal attributes
         feature_names = ['parents', 'has_nurs', 'form', 'children', 'housing', 'finance', 'social', 'health', 'class']
         create_arff(csv_data_path=f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/nursery.csv', data_dir=data_dir,
                     data_name=f'nursery_oversample_0.75_seed_{seed}', feature_names=feature_names, header=0)
         data_stream = ARFFStream(path=f'{data_dir}/nursery_oversample_0.75_seed_{seed}.arff')
     elif dataset_name.__eq__('twonorm'):
+        csv_data_path = f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/{dataset_name}.csv'
+        if not os.path.isfile(csv_data_path):   # Train CTGAN
+            train_ctgan(dataset_name=dataset_name, n_generate=n_instance_limit, seed=seed, data_dir=data_dir)
         feature_names = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15',
                          'A16', 'A17', 'A18', 'A19', 'A20', 'class']
         create_arff(csv_data_path=f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/twonorm.csv', data_dir=data_dir,
                     data_name=f'twonorm_oversample_0.75_seed_{seed}', feature_names=feature_names, header=0)
         data_stream = ARFFStream(path=f'{data_dir}/twonorm_oversample_0.75_seed_{seed}.arff')
     elif dataset_name.__eq__('optdigits'):
+        csv_data_path = f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/{dataset_name}.csv'
+        if not os.path.isfile(csv_data_path):   # Train CTGAN
+            train_ctgan(dataset_name=dataset_name, n_generate=n_instance_limit, seed=seed, data_dir=data_dir)
         feature_names = [
             'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'input7', 'input8',
             'input9', 'input10', 'input11', 'input12', 'input13', 'input14', 'input15', 'input16',
@@ -211,6 +230,9 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
                     data_name=f'optdigits_oversample_0.75_seed_{seed}', feature_names=feature_names, header=0)
         data_stream = ARFFStream(path=f'{data_dir}/optdigits_oversample_0.75_seed_{seed}.arff')
     elif dataset_name.__eq__('texture'):
+        csv_data_path = f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/{dataset_name}.csv'
+        if not os.path.isfile(csv_data_path):   # Train CTGAN
+            train_ctgan(dataset_name=dataset_name, n_generate=n_instance_limit, seed=seed, data_dir=data_dir)
         feature_names = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10',
                          'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20',
                          'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'A29', 'A30',
@@ -220,6 +242,9 @@ def load_data_stream(dataset_name, data_dir="./benchmark/data", seed=1):
                     data_name=f'texture_oversample_0.75_seed_{seed}', feature_names=feature_names, header=0)
         data_stream = ARFFStream(path=f'{data_dir}/texture_oversample_0.75_seed_{seed}.arff')
     elif dataset_name.__eq__('satimage'):
+        csv_data_path = f'{data_dir}/ctgan/seed_{seed}/oversample_0.75/{dataset_name}.csv'
+        if not os.path.isfile(csv_data_path):   # Train CTGAN
+            train_ctgan(dataset_name=dataset_name, n_generate=n_instance_limit, seed=seed, data_dir=data_dir)
         feature_names = [
             'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10',
             'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20',
